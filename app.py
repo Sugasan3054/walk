@@ -626,20 +626,312 @@ def show_gps_route_generation():
                     if st.button(f"このルートを選択", key=f"select_{route['id']}"):
                         st.session_state.selected_route = route
                         st.session_state.current_step = 'details'
-st.success(f"✅ {route['name']}を選択しました！")
-st.rerun()
+                        st.success(f"✅ {route['name']}' を選択しました！")
+                        st.rerun()
+                    
+                    # ルートのプレビュー地図
+                    preview_map = create_map(route)
+                    st_folium(preview_map, width=250, height=200)
+                
+                # 施設情報の表示
+                if route.get('toilets') or route.get('rest_spots'):
+                    st.markdown("**🏪 利用可能な施設:**")
+                    facilities_col1, facilities_col2 = st.columns(2)
+                    
+                    with facilities_col1:
+                        if route.get('toilets'):
+                            st.markdown("**🚻 トイレ:**")
+                            for toilet in route['toilets']:
+                                st.markdown(f"• {toilet}")
+                    
+                    with facilities_col2:
+                        if route.get('rest_spots'):
+                            st.markdown("**🪑 休憩所:**")
+                            for rest_spot in route['rest_spots']:
+                                st.markdown(f"• {rest_spot}")
 
-# ルート詳細の表示
-if st.button(f"詳細を見る", key=f"detail_{route['id']}"):
-    st.markdown("#### 🚻 トイレ・休憩所")
-    for toilet in route['toilets']:
-        st.markdown(f"• 🚻 {toilet}")
-    for rest in route['rest_spots']:
-        st.markdown(f"• 🪑 {rest}")
+def show_home():
+    """ホーム画面"""
+    st.title("🚶 安心散歩ナビ")
+    st.markdown("### あなたの安全で楽しい散歩をサポートします")
     
-    # ルート地図の表示
-    route_map = create_map(route)
-    st_folium(route_map, width=600, height=300, key=f"map_{route['id']}")
+    # 天候情報の表示
+    weather = get_weather_condition()
+    weather_container = st.container()
+    with weather_container:
+        st.markdown(f"""
+        <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; margin: 10px 0;">
+            <h4 style="color: #2c3e50; margin: 0;">🌤️ 今日の散歩状況</h4>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <div>温度: {weather['temp']}°C</div>
+                <div>湿度: {weather['humidity']}%</div>
+                <div>状況: {weather['color']} {weather['condition']}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # メインメニュー
+    st.markdown("### 🎯 何をお探しですか？")
+    
+    menu_col1, menu_col2 = st.columns(2)
+    
+    with menu_col1:
+        if st.button("🗺️ GPS位置からルート生成", use_container_width=True):
+            st.session_state.current_step = 'gps_route'
+            st.rerun()
+        
+        if st.button("📋 事前設定済みルート", use_container_width=True):
+            st.session_state.current_step = 'preset_routes'
+            st.rerun()
+    
+    with menu_col2:
+        if st.button("⚙️ 設定・プロフィール", use_container_width=True):
+            st.session_state.current_step = 'settings'
+            st.rerun()
+        
+        if st.button("📊 歩行履歴", use_container_width=True):
+            st.session_state.current_step = 'history'
+            st.rerun()
+    
+    # 現在の状況表示
+    if st.session_state.current_location:
+        st.markdown("### 📍 現在の状況")
+        status_col1, status_col2, status_col3 = st.columns(3)
+        
+        with status_col1:
+            st.metric("現在地", st.session_state.current_location.get('city', '不明'))
+        
+        with status_col2:
+            st.metric("総歩行距離", f"{st.session_state.total_distance:.1f}m")
+        
+        with status_col3:
+            walking_time = 0
+            if st.session_state.walking_start_time:
+                walking_time = time.time() - st.session_state.walking_start_time
+            st.metric("散歩時間", f"{walking_time/60:.0f}分")
+
+def show_settings():
+    """設定画面"""
+    st.header("⚙️ 設定・プロフィール")
+    
+    # GPS設定セクション
+    st.markdown("### 📍 GPS設定")
+    
+    gps_col1, gps_col2 = st.columns([2, 1])
+    
+    with gps_col1:
+        st.markdown("**位置情報サービス**")
+        
+        # GPS有効化ボタン
+        if st.button("📍 位置情報を取得", type="primary"):
+            # 実際のGPS取得（デモ用にシミュレート）
+            with st.spinner("位置情報を取得中..."):
+                time.sleep(2)
+                location = simulate_gps_location()
+                st.session_state.current_location = location
+                st.session_state.gps_enabled = True
+                st.success(f"✅ 位置情報を取得しました: {location['city']}")
+        
+        # デモ用位置設定
+        if st.button("🎯 デモ用位置を使用"):
+            demo_location = {
+                'lat': 35.6762,
+                'lon': 139.6503,
+                'accuracy': 10,
+                'city': '東京（デモ）',
+                'timestamp': time.time()
+            }
+            st.session_state.current_location = demo_location
+            st.session_state.gps_enabled = True
+            st.success("✅ デモ用位置を設定しました")
+    
+    with gps_col2:
+        if st.session_state.current_location:
+            st.success(f"📍 現在位置: {st.session_state.current_location.get('city', '不明')}")
+            st.info(f"精度: {st.session_state.current_location.get('accuracy', 0)}m")
+        else:
+            st.warning("位置情報が設定されていません")
+    
+    # JavaScript GPS取得
+    st.markdown("### 🌐 ブラウザGPS（実験的）")
+    st.components.v1.html(get_current_location_js(), height=200)
+    
+    st.markdown("---")
+    
+    # ユーザー設定
+    st.markdown("### 👤 ユーザー設定")
+    
+    prefs_col1, prefs_col2 = st.columns(2)
+    
+    with prefs_col1:
+        mobility = st.selectbox(
+            "歩行レベル",
+            ["ゆっくり歩き", "普通", "元気に歩く"],
+            index=1 if st.session_state.user_preferences.get('mobility') == 'normal' else 0
+        )
+        
+        walking_time = st.slider(
+            "希望散歩時間（分）",
+            min_value=15,
+            max_value=120,
+            value=st.session_state.user_preferences.get('walking_time', 30),
+            step=15
+        )
+        
+        safety_level = st.selectbox(
+            "安全重視度",
+            ["低", "中", "高"],
+            index=2
+        )
+    
+    with prefs_col2:
+        st.markdown("**興味のあること**")
+        selected_interests = []
+        for interest in interests_list:
+            key = f"settings_{interest['id']}"
+            if st.checkbox(f"{interest['icon']} {interest['name']}", key=key):
+                selected_interests.append(interest['id'])
+    
+    # 設定保存
+    if st.button("💾 設定を保存"):
+        st.session_state.user_preferences.update({
+            'mobility': 'slow' if mobility == 'ゆっくり歩き' else 'normal' if mobility == '普通' else 'fast',
+            'walking_time': walking_time,
+            'interests': selected_interests,
+            'safety_level': safety_level.lower()
+        })
+        st.success("✅ 設定を保存しました")
+    
+    st.markdown("---")
+    
+    # データ管理
+    st.markdown("### 📊 データ管理")
+    
+    data_col1, data_col2 = st.columns(2)
+    
+    with data_col1:
+        if st.button("🗑️ 歩行履歴をクリア"):
+            st.session_state.location_history = []
+            st.session_state.walking_path = []
+            st.session_state.total_distance = 0
+            st.success("✅ 歩行履歴をクリアしました")
+    
+    with data_col2:
+        if st.button("🔄 アプリをリセット"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.success("✅ アプリをリセットしました")
+            st.rerun()
+
+def show_preset_routes():
+    """事前設定済みルート画面"""
+    st.header("📋 事前設定済みルート")
+    
+    # サンプルルートデータ
+    preset_routes = [
+        {
+            'id': 'park_walk',
+            'name': '近所の公園散歩',
+            'description': '住宅街の公園を巡るのんびりコース',
+            'distance': '1.2km',
+            'time': '20分',
+            'difficulty': '易',
+            'safety_score': 95,
+            'heatstroke_risk': 'low',
+            'features': ['緑が多い', 'トイレあり', 'ベンチ多数'],
+            'highlights': ['季節の花', '池の鯉', '遊具エリア'],
+            'coordinates': [
+                [35.6762, 139.6503],
+                [35.6772, 139.6513],
+                [35.6782, 139.6503],
+                [35.6772, 139.6493],
+                [35.6762, 139.6503]
+            ]
+        },
+        {
+            'id': 'shopping_street',
+            'name': '商店街散策',
+            'description': '地元の商店街を楽しむコース',
+            'distance': '2.1km',
+            'time': '35分',
+            'difficulty': '中',
+            'safety_score': 88,
+            'heatstroke_risk': 'medium',
+            'features': ['お店多数', 'カフェあり', '人通り多い'],
+            'highlights': ['老舗店舗', 'パン屋', 'お惣菜店'],
+            'coordinates': [
+                [35.6762, 139.6503],
+                [35.6742, 139.6523],
+                [35.6722, 139.6543],
+                [35.6762, 139.6503]
+            ]
+        },
+        {
+            'id': 'riverside_walk',
+            'name': '川沿い散歩',
+            'description': '川沿いの遊歩道を歩くコース',
+            'distance': '3.5km',
+            'time': '50分',
+            'difficulty': '中',
+            'safety_score': 92,
+            'heatstroke_risk': 'medium',
+            'features': ['景色良好', '涼しい', 'ジョギングコース'],
+            'highlights': ['橋からの眺め', '水鳥観察', '桜並木'],
+            'coordinates': [
+                [35.6762, 139.6503],
+                [35.6802, 139.6523],
+                [35.6842, 139.6543],
+                [35.6882, 139.6563],
+                [35.6762, 139.6503]
+            ]
+        }
+    ]
+    
+    # フィルター機能
+    st.markdown("### 🔍 ルートを絞り込み")
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
+    
+    with filter_col1:
+        difficulty_filter = st.selectbox("難易度", ["全て", "易", "中", "難"])
+    
+    with filter_col2:
+        time_filter = st.selectbox("時間", ["全て", "30分以下", "30-60分", "60分以上"])
+    
+    with filter_col3:
+        safety_filter = st.selectbox("安全度", ["全て", "90%以上", "80%以上", "70%以上"])
+    
+    # ルート表示
+    st.markdown("### 🛤️ 利用可能なルート")
+    
+    for route in preset_routes:
+        # フィルタリング
+        if difficulty_filter != "全て" and route['difficulty'] != difficulty_filter:
+            continue
+        
+        with st.expander(f"📍 {route['name']} - {route['time']}", expanded=False):
+            route_detail_col1, route_detail_col2 = st.columns([3, 1])
+            
+            with route_detail_col1:
+                st.markdown(f"**説明:** {route['description']}")
+                st.markdown(f"**距離:** {route['distance']} | **時間:** {route['time']} | **難易度:** {route['difficulty']}")
+                
+                risk_color = "🟢" if route['heatstroke_risk'] == 'low' else "🟡" if route['heatstroke_risk'] == 'medium' else "🔴"
+                st.markdown(f"**安全度:** {route['safety_score']}% | **熱中症リスク:** {risk_color}")
+                
+                st.markdown("**特徴:**")
+                for feature in route['features']:
+                    st.markdown(f"• {feature}")
+                
+                st.markdown("**見どころ:**")
+                for highlight in route['highlights']:
+                    st.markdown(f"• {highlight}")
+            
+            with route_detail_col2:
+                if st.button(f"このルートを選択", key=f"preset_{route['id']}"):
+                    st.session_state.selected_route = route
+                    st.session_state.current_step = 'details'
+                    st.success(f"✅ {route['name']} を選択しました！")
+                    st.rerun()
 
 def show_route_details():
     """ルート詳細画面"""
@@ -649,90 +941,67 @@ def show_route_details():
     
     route = st.session_state.selected_route
     
-    st.header(f"📍 {route['name']}")
-    st.markdown(f"**{route['description']}**")
+    st.header(f"🗺️ {route['name']}")
     
-    # 基本情報
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("距離", route['distance'])
-    with col2:
-        st.metric("時間", route['time'])
-    with col3:
-        st.metric("難易度", route['difficulty'])
-    with col4:
-        risk_color = "🟢" if route['heatstroke_risk'] == 'low' else "🟡" if route['heatstroke_risk'] == 'medium' else "🔴"
-        st.markdown(f"**熱中症リスク**<br>{risk_color}", unsafe_allow_html=True)
+    # ルート詳細情報
+    detail_col1, detail_col2 = st.columns([2, 1])
     
-    # 天候情報
-    weather = get_weather_condition()
-    st.markdown("### 🌤️ 現在の天候")
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.markdown(f"**{weather['color']} {weather['condition']}**")
-        st.markdown(f"**気温:** {weather['temp']}°C")
-        st.markdown(f"**湿度:** {weather['humidity']}%")
-    with col2:
+    with detail_col1:
+        st.markdown("### 📋 ルート詳細")
+        
+        # 基本情報
+        info_col1, info_col2, info_col3 = st.columns(3)
+        with info_col1:
+            st.metric("距離", route['distance'])
+        with info_col2:
+            st.metric("時間", route['time'])
+        with info_col3:
+            st.metric("難易度", route['difficulty'])
+        
+        # 地図表示
+        st.markdown("### 🗺️ ルートマップ")
+        route_map = create_map(route)
+        st_folium(route_map, width=600, height=400)
+    
+    with detail_col2:
+        st.markdown("### 🎯 散歩開始")
+        
+        # 天候チェック
+        weather = get_weather_condition()
         if weather['risk'] == 'high':
-            st.warning("⚠️ 熱中症のリスクが高いです。十分な水分補給と休憩を心がけてください。")
+            st.warning("⚠️ 熱中症注意報が発令されています")
         elif weather['risk'] == 'medium':
-            st.info("ℹ️ 適度な休憩と水分補給を心がけてください。")
+            st.info("💧 水分補給をお忘れなく")
         else:
-            st.success("✅ 散歩に適した天候です。")
-    
-    # 地図表示
-    st.markdown("### 🗺️ ルート地図")
-    route_map = create_map(route)
-    st_folium(route_map, width=700, height=400)
-    
-    # 詳細情報
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 🌟 見どころ")
-        for highlight in route['highlights']:
-            st.markdown(f"• {highlight}")
+            st.success("✅ 散歩に適した天候です")
         
-        st.markdown("### 🏢 特徴")
-        for feature in route['features']:
-            st.markdown(f"• {feature}")
-    
-    with col2:
-        st.markdown("### 🚻 トイレ・休憩所")
-        st.markdown("**トイレ:**")
-        for toilet in route['toilets']:
-            st.markdown(f"• {toilet}")
-        
-        st.markdown("**休憩所:**")
-        for rest in route['rest_spots']:
-            st.markdown(f"• {rest}")
-    
-    # 散歩開始ボタン
-    st.markdown("---")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("🔙 ルート選択に戻る", type="secondary"):
-            st.session_state.current_step = 'gps_routes'
-            st.rerun()
-    
-    with col2:
-        if st.button("🚶 散歩を開始", type="primary"):
+        # 散歩開始ボタン
+        if st.button("🚶 散歩を開始", type="primary", use_container_width=True):
             st.session_state.walking_start_time = time.time()
-            st.session_state.walking_progress = 0
-            st.session_state.walking_path = []
             st.session_state.current_step = 'walking'
-            st.success("🎉 散歩を開始しました！")
+            st.success("✅ 散歩を開始しました！")
             st.rerun()
-    
-    with col3:
-        if st.button("📱 別のルートを検索"):
-            st.session_state.current_step = 'gps_routes'
-            st.session_state.generated_routes = []
+        
+        # 他のルートを見る
+        if st.button("🔄 他のルートを見る", use_container_width=True):
+            st.session_state.selected_route = None
+            st.session_state.current_step = 'home'
             st.rerun()
+        
+        # 安全情報
+        st.markdown("### 🛡️ 安全情報")
+        st.markdown(f"**安全度:** {route['safety_score']}%")
+        
+        risk_color = "🟢" if route['heatstroke_risk'] == 'low' else "🟡" if route['heatstroke_risk'] == 'medium' else "🔴"
+        st.markdown(f"**熱中症リスク:** {risk_color}")
+        
+        # 緊急連絡先
+        st.markdown("### 📞 緊急連絡先")
+        st.markdown("**救急:** 119")
+        st.markdown("**警察:** 110")
 
-def show_walking_progress():
-    """散歩進行画面"""
+def show_walking_mode():
+    """散歩中画面"""
     if not st.session_state.selected_route:
         st.error("ルートが選択されていません。")
         return
@@ -741,456 +1010,247 @@ def show_walking_progress():
     
     st.header(f"🚶 散歩中: {route['name']}")
     
-    # 散歩時間の計算
+    # 歩行状況
     if st.session_state.walking_start_time:
         elapsed_time = time.time() - st.session_state.walking_start_time
-        elapsed_minutes = int(elapsed_time / 60)
-        elapsed_seconds = int(elapsed_time % 60)
+        progress = min(elapsed_time / (int(route['time'].replace('分', '')) * 60), 1.0)
+        st.progress(progress)
         
-        # 進捗バーの更新
-        total_time = int(route['time'].replace('分', ''))
-        progress = min(elapsed_time / (total_time * 60), 1.0)
-        st.session_state.walking_progress = progress
+        status_col1, status_col2, status_col3 = st.columns(3)
         
-        # 進捗表示
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("経過時間", f"{elapsed_minutes}:{elapsed_seconds:02d}")
-        with col2:
-            st.metric("進捗", f"{progress * 100:.1f}%")
-        with col3:
-            distance_walked = st.session_state.total_distance / 1000  # km
-            st.metric("歩行距離", f"{distance_walked:.2f}km")
-        
-        # 進捗バー
-        st.progress(progress, text=f"散歩進捗: {progress * 100:.1f}%")
+        with status_col1:
+            st.metric("経過時間", f"{elapsed_time/60:.0f}分")
+        with status_col2:
+            st.metric("進捗", f"{progress*100:.0f}%")
+        with status_col3:
+            remaining_time = max(0, int(route['time'].replace('分', '')) - elapsed_time/60)
+            st.metric("残り時間", f"{remaining_time:.0f}分")
     
-    # 現在の位置情報とマップ
-    st.markdown("### 🗺️ 現在位置")
+    # 現在地マップ
+    map_col1, map_col2 = st.columns([3, 1])
     
-    # GPS位置の更新シミュレーション
-    if st.button("📍 位置を更新"):
-        if st.session_state.current_location:
-            # 前回の位置から少し移動したランダムな位置を生成
-            new_location = {
-                'lat': st.session_state.current_location['lat'] + random.uniform(-0.001, 0.001),
-                'lon': st.session_state.current_location['lon'] + random.uniform(-0.001, 0.001),
-                'accuracy': random.randint(5, 15),
-                'timestamp': time.time()
-            }
-            
-            # 歩行経路に追加
-            st.session_state.walking_path.append([new_location['lat'], new_location['lon']])
-            st.session_state.location_history.append(new_location)
-            st.session_state.current_location = new_location
-            
-            # 歩行距離を更新
-            st.session_state.total_distance = calculate_walking_distance()
-            
-            st.success("✅ 位置が更新されました！")
+    with map_col1:
+        st.markdown("### 🗺️ 現在地")
+        walking_map = create_map(route)
+        st_folium(walking_map, width=500, height=400)
+    
+    with map_col2:
+        st.markdown("### 🎯 散歩管理")
+        
+        # 位置更新ボタン
+        if st.button("📍 位置を更新", use_container_width=True):
+            if st.session_state.current_location:
+                location = st.session_state.current_location.copy()
+                location['timestamp'] = time.time()
+                st.session_state.location_history.append(location)
+                st.session_state.walking_path.append([location['lat'], location['lon']])
+                st.session_state.total_distance = calculate_walking_distance()
+                st.success("✅ 位置を更新しました")
+        
+        # 休憩ボタン
+        if st.button("☕ 休憩", use_container_width=True):
+            st.info("😌 休憩中です。水分補給をお忘れなく！")
+        
+        # 散歩完了ボタン
+        if st.button("🏁 散歩完了", type="primary", use_container_width=True):
+            st.session_state.walking_start_time = None
+            st.session_state.current_step = 'complete'
+            st.success("✅ 散歩が完了しました！")
             st.rerun()
-    
-    # 自動更新の設定
-    if st.checkbox("📡 自動位置更新（10秒間隔）", value=False):
-        time.sleep(10)
-        st.rerun()
-    
-    # 地図表示
-    walking_map = create_map(route)
-    st_folium(walking_map, width=700, height=400)
+        
+        # 緊急時
+        st.markdown("### 🚨 緊急時")
+        if st.button("🚨 緊急通報", use_container_width=True):
+            st.error("🚨 緊急通報機能が有効化されました")
+            st.markdown("**救急:** 119 | **警察:** 110")
     
     # 近くの施設情報
     if st.session_state.current_location:
-        st.markdown("### 🏢 近くの施設")
+        st.markdown("### 🏪 近くの施設")
         facilities = find_nearby_facilities(
             st.session_state.current_location['lat'],
             st.session_state.current_location['lon']
         )
         
-        for facility in facilities[:5]:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f"**{facility['name']}** ({facility['type']})")
-            with col2:
-                st.markdown(f"{facility['distance']}m")
-    
-    # 健康状態モニタリング
-    st.markdown("### 💪 健康状態")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        steps = int(st.session_state.total_distance * 1.3)  # 1mあたり約1.3歩
-        st.metric("推定歩数", f"{steps:,}歩")
-    
-    with col2:
-        calories = int(elapsed_minutes * 3) if st.session_state.walking_start_time else 0
-        st.metric("消費カロリー", f"{calories}kcal")
-    
-    with col3:
-        avg_pace = (elapsed_minutes / (st.session_state.total_distance / 1000)) if st.session_state.total_distance > 0 else 0
-        st.metric("平均ペース", f"{avg_pace:.1f}分/km")
-    
-    # 水分補給リマインダー
-    if elapsed_minutes > 20 and elapsed_minutes % 20 == 0:
-        st.warning("💧 水分補給の時間です！")
-    
-    # 散歩完了・一時停止ボタン
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("⏸️ 散歩を一時停止"):
-            st.session_state.current_step = 'details'
-            st.info("散歩を一時停止しました。")
-            st.rerun()
-    
-    with col2:
-        if st.button("🏁 散歩を完了", type="primary"):
-            st.session_state.current_step = 'summary'
-            st.success("🎉 散歩が完了しました！")
-            st.rerun()
-    
-    with col3:
-        if st.button("🚨 緊急時サポート", type="secondary"):
-            st.error("🚨 緊急時サポートが要請されました。")
-            st.markdown("**緊急連絡先:** 110 (警察) / 119 (消防)")
+        facility_cols = st.columns(3)
+        for i, facility in enumerate(facilities[:6]):
+            with facility_cols[i % 3]:
+                st.markdown(f"**{facility['name']}**")
+                st.markdown(f"{facility['type']} - {facility['distance']}m")
 
-def show_walking_summary():
-    """散歩完了サマリー画面"""
-    if not st.session_state.selected_route:
-        st.error("ルートが選択されていません。")
-        return
-    
-    route = st.session_state.selected_route
-    
+def show_completion():
+    """散歩完了画面"""
     st.header("🎉 散歩完了！")
     st.balloons()
     
-    # 散歩の結果
-    if st.session_state.walking_start_time:
-        total_time = time.time() - st.session_state.walking_start_time
-        total_minutes = int(total_time / 60)
-        total_seconds = int(total_time % 60)
-        
-        st.success(f"素晴らしい散歩でした！ {route['name']}を完歩しました。")
-        
-        # 結果サマリー
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("散歩時間", f"{total_minutes}:{total_seconds:02d}")
-        with col2:
-            distance = st.session_state.total_distance / 1000
-            st.metric("歩行距離", f"{distance:.2f}km")
-        with col3:
-            steps = int(st.session_state.total_distance * 1.3)
-            st.metric("歩数", f"{steps:,}歩")
-        with col4:
-            calories = int(total_minutes * 3)
-            st.metric("消費カロリー", f"{calories}kcal")
-        
-        # 歩行経路の地図
-        st.markdown("### 🗺️ 歩行経路")
-        summary_map = create_map(route)
-        st_folium(summary_map, width=700, height=400)
-        
-        # 健康効果
-        st.markdown("### 💪 健康効果")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**今日の成果:**")
-            st.markdown(f"• 心拍数向上: 約{total_minutes * 2}回")
-            st.markdown(f"• 血流改善: {distance:.1f}km分")
-            st.markdown(f"• ストレス軽減: 散歩効果")
-            st.markdown(f"• 日光浴: 約{total_minutes}分")
-        
-        with col2:
-            st.markdown("**継続効果:**")
-            st.markdown("• 心肺機能の向上")
-            st.markdown("• 筋力の維持・向上")
-            st.markdown("• 免疫力の向上")
-            st.markdown("• 睡眠の質の改善")
-        
-        # 記録保存
-        st.markdown("### 📊 記録")
-        
-        walking_record = {
-            'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'route_name': route['name'],
-            'duration': f"{total_minutes}:{total_seconds:02d}",
-            'distance': f"{distance:.2f}km",
-            'steps': f"{steps:,}歩",
-            'calories': f"{calories}kcal",
-            'weather': get_weather_condition()['condition']
-        }
-        
-        st.json(walking_record)
-        
-        # 次回への提案
-        st.markdown("### 🌟 次回の散歩提案")
-        if distance < 1.0:
-            st.info("💡 次回はもう少し長い距離にチャレンジしてみませんか？")
-        elif distance > 3.0:
-            st.info("💡 素晴らしい長距離散歩でした！定期的な運動を続けましょう。")
+    # 完了統計
+    stats_col1, stats_col2, stats_col3 = st.columns(3)
+    
+    with stats_col1:
+        st.metric("総距離", f"{st.session_state.total_distance:.0f}m")
+    with stats_col2:
+        if st.session_state.location_history:
+            total_time = len(st.session_state.location_history) * 5  # 5分間隔と仮定
+            st.metric("散歩時間", f"{total_time}分")
         else:
-            st.info("💡 理想的な散歩距離です！この調子で続けましょう。")
+            st.metric("散歩時間", "記録なし")
+    with stats_col3:
+        calories = int(st.session_state.total_distance * 0.05)  # 大雑把な計算
+        st.metric("消費カロリー", f"{calories}kcal")
     
-    # アクションボタン
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
+    # 散歩の感想
+    st.markdown("### 📝 散歩の感想")
+    rating = st.slider("今日の散歩を評価してください", 1, 5, 5)
+    comment = st.text_area("感想やメモ", placeholder="今日の散歩はいかがでしたか？")
     
-    with col1:
-        if st.button("🔄 別の散歩を計画"):
-            # セッション状態をリセット
-            st.session_state.current_step = 'gps_routes'
-            st.session_state.selected_route = None
-            st.session_state.walking_start_time = None
-            st.session_state.walking_progress = 0
-            st.session_state.walking_path = []
-            st.session_state.total_distance = 0
-            st.session_state.generated_routes = []
-            st.rerun()
+    if st.button("💾 記録を保存"):
+        # 散歩記録を保存（実際のアプリでは永続化）
+        st.success("✅ 散歩記録を保存しました")
     
-    with col2:
-        if st.button("🏠 ホームに戻る"):
+    # 次のアクション
+    st.markdown("### 🎯 次のアクション")
+    
+    action_col1, action_col2 = st.columns(2)
+    
+    with action_col1:
+        if st.button("🏠 ホームに戻る", use_container_width=True):
             st.session_state.current_step = 'home'
             st.rerun()
     
-    with col3:
-        if st.button("📱 記録を共有"):
-            st.info("📱 散歩記録の共有機能は今後実装予定です。")
+    with action_col2:
+        if st.button("🚶 もう一度散歩", use_container_width=True):
+            st.session_state.current_step = 'home'
+            st.rerun()
 
-def show_settings():
-    """設定画面"""
-    st.header("⚙️ 設定")
+def show_history():
+    """歩行履歴画面"""
+    st.header("📊 歩行履歴")
     
-    # GPS設定
-    st.markdown("### 📍 GPS・位置情報")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        if st.button("📍 現在位置を取得", type="primary"):
-            with st.spinner("🔍 位置情報を取得中..."):
-                # 実際の実装ではブラウザのGeolocation APIを使用
-                simulated_location = simulate_gps_location()
-                st.session_state.current_location = simulated_location
-                st.session_state.gps_enabled = True
-                st.success(f"✅ 位置情報を取得しました: {simulated_location.get('city', '不明')}")
-        
-        # GPS JavaScript（実際のブラウザ環境での使用）
-        if st.checkbox("🔧 実際のGPS位置を使用（ブラウザ）", value=False):
-            st.markdown(get_current_location_js(), unsafe_allow_html=True)
-    
-    with col2:
-        if st.session_state.current_location:
-            st.success("✅ GPS有効")
-            st.markdown(f"**位置:** {st.session_state.current_location.get('city', '不明')}")
-            st.markdown(f"**精度:** {st.session_state.current_location.get('accuracy', 'N/A')}m")
-        else:
-            st.error("❌ GPS無効")
-    
-    # デモ用位置設定
-    st.markdown("### 🎯 デモ用位置設定")
-    demo_cities = [
-        {'name': '東京駅周辺', 'lat': 35.6762, 'lon': 139.6503},
-        {'name': '渋谷駅周辺', 'lat': 35.6580, 'lon': 139.7016},
-        {'name': '新宿駅周辺', 'lat': 35.6896, 'lon': 139.7006},
-        {'name': '川崎駅周辺', 'lat': 35.5308, 'lon': 139.7029},
-        {'name': '横浜駅周辺', 'lat': 35.4437, 'lon': 139.6380}
+    # サンプルデータ
+    history_data = [
+        {"date": "2024-01-15", "route": "近所の公園散歩", "distance": 1200, "time": 20, "rating": 5},
+        {"date": "2024-01-12", "route": "商店街散策", "distance": 2100, "time": 35, "rating": 4},
+        {"date": "2024-01-10", "route": "川沿い散歩", "distance": 3500, "time": 50, "rating": 5},
+        {"date": "2024-01-08", "route": "GPS生成ルート", "distance": 1800, "time": 30, "rating": 4},
+        {"date": "2024-01-05", "route": "近所の公園散歩", "distance": 1200, "time": 18, "rating": 5}
     ]
     
-    selected_city = st.selectbox(
-        "デモ用位置を選択",
-        options=demo_cities,
-        format_func=lambda x: x['name']
-    )
+    # 統計情報
+    st.markdown("### 📈 統計情報")
     
-    if st.button("📍 デモ位置を設定"):
-        st.session_state.current_location = {
-            'lat': selected_city['lat'],
-            'lon': selected_city['lon'],
-            'accuracy': 10,
-            'timestamp': time.time(),
-            'city': selected_city['name']
-        }
-        st.session_state.gps_enabled = True
-        st.success(f"✅ デモ位置を設定しました: {selected_city['name']}")
+    total_distance = sum(record['distance'] for record in history_data)
+    total_time = sum(record['time'] for record in history_data)
+    avg_rating = sum(record['rating'] for record in history_data) / len(history_data)
     
-    # ユーザー設定
-    st.markdown("### 👤 ユーザー設定")
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
     
-    col1, col2 = st.columns(2)
+    with metric_col1:
+        st.metric("総散歩回数", len(history_data))
+    with metric_col2:
+        st.metric("総距離", f"{total_distance/1000:.1f}km")
+    with metric_col3:
+        st.metric("総時間", f"{total_time}分")
+    with metric_col4:
+        st.metric("平均評価", f"{avg_rating:.1f}⭐")
     
-    with col1:
-        mobility = st.selectbox(
-            "歩行レベル",
-            ["ゆっくり歩き", "普通", "元気に歩く"],
-            index=1
-        )
-        
-        walking_time = st.slider(
-            "好みの散歩時間（分）",
-            min_value=15,
-            max_value=120,
-            value=st.session_state.user_preferences.get('walking_time', 30),
-            step=15
-        )
-        
-        safety_level = st.selectbox(
-            "安全レベル",
-            ["低", "中", "高"],
-            index=2
-        )
+    # 履歴リスト
+    st.markdown("### 📋 散歩履歴")
     
-    with col2:
-        st.markdown("**興味のあること**")
-        selected_interests = []
-        for interest in interests_list:
-            if st.checkbox(f"{interest['icon']} {interest['name']}", 
-                         key=f"settings_{interest['id']}", 
-                         value=interest['id'] in st.session_state.user_preferences.get('interests', [])):
-                selected_interests.append(interest['id'])
-    
-    # 設定保存
-    if st.button("💾 設定を保存"):
-        st.session_state.user_preferences.update({
-            'mobility': mobility,
-            'walking_time': walking_time,
-            'safety_level': safety_level,
-            'interests': selected_interests
-        })
-        st.success("✅ 設定を保存しました！")
-    
-    # システム情報
-    st.markdown("### 💻 システム情報")
-    st.markdown(f"**現在のステップ:** {st.session_state.current_step}")
-    st.markdown(f"**GPS状態:** {'有効' if st.session_state.gps_enabled else '無効'}")
-    st.markdown(f"**位置履歴:** {len(st.session_state.location_history)}件")
-    st.markdown(f"**歩行経路:** {len(st.session_state.walking_path)}ポイント")
-    
-    # データリセット
-    st.markdown("### 🔄 データリセット")
-    if st.button("⚠️ 全データをリセット", type="secondary"):
-        # 確認
-        if st.button("本当にリセットしますか？"):
-            for key in list(st.session_state.keys()):
-                if key != 'current_step':
-                    del st.session_state[key]
-            st.session_state.current_step = 'home'
-            st.success("✅ データをリセットしました。")
-            st.rerun()
+    for record in history_data:
+        with st.expander(f"{record['date']} - {record['route']}"):
+            record_col1, record_col2 = st.columns([2, 1])
+            
+            with record_col1:
+                st.markdown(f"**距離:** {record['distance']}m")
+                st.markdown(f"**時間:** {record['time']}分")
+                st.markdown(f"**評価:** {'⭐' * record['rating']}")
+            
+            with record_col2:
+                if st.button(f"再実行", key=f"repeat_{record['date']}"):
+                    st.info("同じルートを再実行します")
 
+# メイン関数
 def main():
     """メイン関数"""
-    st.title("🚶 安心散歩ナビ")
-    st.markdown("**GPS位置情報を活用した高齢者向け散歩支援アプリ**")
     
     # サイドバー
     with st.sidebar:
-        st.markdown("### 📋 メニュー")
+        st.markdown("### 🧭 ナビゲーション")
         
-        # 現在の状態表示
-        if st.session_state.current_location:
-            st.success(f"📍 位置: {st.session_state.current_location.get('city', '不明')}")
-        else:
-            st.warning("📍 位置情報なし")
+        # 現在のステップ表示
+        steps = {
+            'home': '🏠 ホーム',
+            'gps_route': '🎯 GPS ルート',
+            'preset_routes': '📋 事前設定',
+            'settings': '⚙️ 設定',
+            'details': '📝 詳細',
+            'walking': '🚶 散歩中',
+            'complete': '🎉 完了',
+            'history': '📊 履歴'
+        }
         
-        # メニューボタン
+        current_step_name = steps.get(st.session_state.current_step, '不明')
+        st.markdown(f"**現在:** {current_step_name}")
+        
+        st.markdown("---")
+        
+        # ナビゲーションメニュー
         if st.button("🏠 ホーム"):
             st.session_state.current_step = 'home'
             st.rerun()
         
-        if st.button("🎯 GPS散歩ルート"):
-            st.session_state.current_step = 'gps_routes'
+        if st.button("🎯 GPS ルート"):
+            st.session_state.current_step = 'gps_route'
+            st.rerun()
+        
+        if st.button("📋 事前設定"):
+            st.session_state.current_step = 'preset_routes'
             st.rerun()
         
         if st.button("⚙️ 設定"):
             st.session_state.current_step = 'settings'
             st.rerun()
         
-        # 散歩中の場合
-        if st.session_state.current_step == 'walking':
-            st.markdown("---")
-            st.markdown("### 🚶 散歩中")
-            if st.session_state.walking_start_time:
-                elapsed = time.time() - st.session_state.walking_start_time
-                st.markdown(f"**経過時間:** {int(elapsed/60)}:{int(elapsed%60):02d}")
-            if st.button("🏁 散歩完了"):
-                st.session_state.current_step = 'summary'
-                st.rerun()
+        if st.button("📊 履歴"):
+            st.session_state.current_step = 'history'
+            st.rerun()
+        
+        st.markdown("---")
+        
+        # 現在の状態表示
+        if st.session_state.current_location:
+            st.success(f"📍 {st.session_state.current_location.get('city', '不明')}")
+        else:
+            st.warning("📍 位置情報なし")
+        
+        if st.session_state.selected_route:
+            st.info(f"🛤️ {st.session_state.selected_route['name']}")
+        
+        st.markdown("---")
+        
+        # アプリ情報
+        st.markdown("### ℹ️ アプリ情報")
+        st.markdown("**バージョン:** 1.0.0")
+        st.markdown("**作者:** 散歩愛好家")
+        st.markdown("**サポート:** support@walkapp.com")
     
     # メインコンテンツ
     if st.session_state.current_step == 'home':
         show_home()
-    elif st.session_state.current_step == 'gps_routes':
+    elif st.session_state.current_step == 'gps_route':
         show_gps_route_generation()
+    elif st.session_state.current_step == 'preset_routes':
+        show_preset_routes()
+    elif st.session_state.current_step == 'settings':
+        show_settings()
     elif st.session_state.current_step == 'details':
         show_route_details()
     elif st.session_state.current_step == 'walking':
-        show_walking_progress()
-    elif st.session_state.current_step == 'summary':
-        show_walking_summary()
-    elif st.session_state.current_step == 'settings':
-        show_settings()
-
-def show_home():
-    """ホーム画面"""
-    st.markdown("### 🌟 ようこそ！")
-    st.markdown("安心散歩ナビは、GPS位置情報を活用してあなたに最適な散歩ルートを提案します。")
-    
-    # 現在位置の状態
-    if st.session_state.current_location:
-        st.success(f"📍 現在位置: {st.session_state.current_location.get('city', '不明')}")
-        
-        # 天候情報
-        weather = get_weather_condition()
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.markdown(f"### 🌤️ 天候: {weather['color']} {weather['condition']}")
-        with col2:
-            st.markdown(f"気温: {weather['temp']}°C | 湿度: {weather['humidity']}%")
-        
-        # 散歩開始ボタン
-        if st.button("🚀 散歩ルートを生成", type="primary", key="home_start"):
-            st.session_state.current_step = 'gps_routes'
-            st.rerun()
-    else:
-        st.warning("📍 位置情報が取得されていません。")
-        st.markdown("散歩ルートを生成するには、まず設定画面で位置情報を有効にしてください。")
-        
-        if st.button("⚙️ 設定に移動", type="primary"):
-            st.session_state.current_step = 'settings'
-            st.rerun()
-    
-    # 機能説明
-    st.markdown("### 🔧 主な機能")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        **🎯 GPS最適化**
-        - 現在位置から最適なルートを生成
-        - 個人の歩行レベルに合わせた提案
-        - 興味に基づいた見どころ情報
-        """)
-    
-    with col2:
-        st.markdown("""
-        **🛡️ 安全サポート**
-        - 歩行中の位置追跡
-        - 熱中症リスク評価
-        - 近くの休憩所・トイレ情報
-        """)
-    
-    with col3:
-        st.markdown("""
-        **📊 健康管理**
-        - 歩数・距離・消費カロリー
-        - 散歩記録の保存
-        - 継続支援機能
-        """)
+        show_walking_mode()
+    elif st.session_state.current_step == 'complete':
+        show_completion()
+    elif st.session_state.current_step == 'history':
+        show_history()
 
 if __name__ == "__main__":
     main()
