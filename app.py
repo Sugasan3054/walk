@@ -627,19 +627,19 @@ def show_gps_route_generation():
                         st.session_state.selected_route = route
                         st.session_state.current_step = 'details'
 st.success(f"✅ {route['name']}を選択しました！")
-                    st.rerun()
+     st.rerun()
                     
-                    # ルート詳細の表示
-                    if st.button(f"詳細を見る", key=f"detail_{route['id']}"):
-                        st.markdown("#### 🚻 トイレ・休憩所")
-                        for toilet in route['toilets']:
-                            st.markdown(f"• 🚻 {toilet}")
-                        for rest in route['rest_spots']:
-                            st.markdown(f"• 🪑 {rest}")
+     # ルート詳細の表示
+     if st.button(f"詳細を見る", key=f"detail_{route['id']}"):
+     	st.markdown("#### 🚻 トイレ・休憩所")
+        for toilet in route['toilets']:
+        	st.markdown(f"• 🚻 {toilet}")
+        for rest in route['rest_spots']:
+                st.markdown(f"• 🪑 {rest}")
                 
-                # ルート地図の表示
-                route_map = create_map(route)
-                st_folium(route_map, width=600, height=300, key=f"map_{route['id']}")
+        # ルート地図の表示
+        route_map = create_map(route)
+         st_folium(route_map, width=600, height=300, key=f"map_{route['id']}")
 
 def show_route_details():
     """ルート詳細画面"""
