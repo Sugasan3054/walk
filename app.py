@@ -627,7 +627,7 @@ def show_gps_route_generation():
                         st.session_state.selected_route = route
                         st.session_state.current_step = 'details'
 st.success(f"✅ {route['name']}を選択しました！")
-                        st.rerun()
+                    st.rerun()
                     
                     # ルート詳細の表示
                     if st.button(f"詳細を見る", key=f"detail_{route['id']}"):
