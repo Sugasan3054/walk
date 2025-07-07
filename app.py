@@ -618,8 +618,7 @@ def create_detailed_route_info(name, coords, distance_km, time_minutes, interest
     # 安全度を地域特性で調整
     adjusted_safety = min(100, base_safety + (location_info['safety_rating'] - 80) * 0.5)
     
-    return {
-        'id': f"detailed_{name.lower().replace(' ', '_')}",
+    return {'id': f"detailed_{name.lower().replace(' ', '_')}",
         'name': f"{name}（{location_info['neighborhood']}発）",
         'description': f"{location_info['district']}周辺の{distance_km:.1f}km散歩コース",
         'distance': f"{distance_km:.1f}km",
